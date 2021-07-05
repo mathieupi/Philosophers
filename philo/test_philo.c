@@ -9,42 +9,44 @@
 
 typedef struct s_options
 {
-	int	number_of_philosophers;
-	int	time_to_die;
-	int	time_to_eat;
-	int	time_to_sleep;
-	int	number_of_times_each_philosopher_must_eat;
+	unsigned int	nbr_of_philosophers;
+	unsigned int	time_to_die;
+	unsigned int	time_to_eat;
+	unsigned int	time_to_sleep;
+	int				nbr_of_times_each_philosopher_must_eat;
 }	t_options;
 
 typedef struct s_philo
 {
-	pthread_t	thread;
-	int		id;
-	int		fork_in_hand;
-	bool	eating;
-	bool	sleeping;
-	bool	thinking;
-	bool	dead;
-	int		death_timer;
-	int		sleep_timer;
-	int		eat_timer;
+	pthread_t			thread;
+	int					id;
+	int					fork_in_hand;
+	bool				eating;
+	bool				sleeping;
+	bool				thinking;
+	bool				dead;
+	unsigned long long	starving_since;
+	int					eat_counter;
 }	t_philo;
 
 typedef struct s_fork
 {
 	int				id;
-	int				used;
+	bool			used;
 	pthread_mutex_t	mutex;
 }	t_fork;
 
 typedef struct s_simulation
 {
-	t_options	options;
-	t_philo		**philosophers;
-	t_fork		**forks;
+	t_options		options;
+	t_philo			**philosophers;
+	t_fork			**forks;
+	unsigned int	satiated_philo;
+	bool			ended;
+	pthread_mutex_t	general_mutex;
 }	t_simulation;
 
-t_simulation	g_simulation;
+static t_simulation	g_simulation;
 
 int	parse_int(const char *str)
 {
@@ -60,14 +62,14 @@ t_options	parse_options(int ac, char **av)
 {
 	t_options	options;
 
-	options.number_of_philosophers = parse_int(av[0]);
+	options.nbr_of_philosophers = parse_int(av[0]);
 	options.time_to_die = parse_int(av[1]);
 	options.time_to_eat = parse_int(av[2]);
 	options.time_to_sleep = parse_int(av[3]);
 	if (ac == 5)
-		options.number_of_times_each_philosopher_must_eat = parse_int(av[4]);
+		options.nbr_of_times_each_philosopher_must_eat = parse_int(av[4]);
 	else
-		options.number_of_times_each_philosopher_must_eat = -1;
+		options.nbr_of_times_each_philosopher_must_eat = -1;
 	return (options);
 }
 
@@ -91,9 +93,8 @@ t_philo	*create_philosopher(int id)
 	philo->sleeping = false;
 	philo->thinking = false;
 	philo->dead = false;
-	philo->death_timer = 0;
-	philo->sleep_timer = 0;
-	philo->eat_timer = 0;
+	philo->starving_since = get_time_millis();
+	philo->eat_counter = 0;
 	return (philo);
 }
 
@@ -118,7 +119,7 @@ t_fork	*create_fork(int id)
 
 	fork = malloc(sizeof(t_fork));
 	fork->id = id;
-	fork->used = 0;
+	fork->used = false;
 	pthread_mutex_init(&fork->mutex, NULL);
 	return (fork);
 }
@@ -154,10 +155,13 @@ t_fork	**create_forks(int amount)
 
 t_fork	*get_right_fork(int id, t_fork **forks, int fork_amout)
 {
-	return (forks[(id + 1) % fork_amout]);
+	id++;
+	if (id == fork_amout)
+		id = 0;
+	return (forks[id]);
 }
 
-t_fork	*get_left_fork(int id, t_fork **forks, int fork_amout)
+t_fork	*get_left_fork(int id, t_fork **forks)
 {
 	return (forks[id]);
 }
@@ -190,60 +194,125 @@ void	unlock_forks(t_fork *left_fork, t_fork *right_fork)
 	}
 }
 
-int p_eat(t_philo *me)
+void	print_status(t_philo *me, char *msg)
 {
-	int	result;
+	if (g_simulation.ended && !me->dead)
+		return ;
+	pthread_mutex_lock(&g_simulation.general_mutex);
+	printf("%llu %d %s\n", get_time_millis(), me->id, msg);
+	pthread_mutex_unlock(&g_simulation.general_mutex);
+}
 
-	result = 0;
-	t_fork *right_fork = get_right_fork(me->id - 1, g_simulation.forks, g_simulation.options.number_of_philosophers);
-	t_fork *left_fork = get_left_fork(me->id - 1, g_simulation.forks, g_simulation.options.number_of_philosophers);
+void add_satiated_philo(void)
+{
+	pthread_mutex_lock(&g_simulation.general_mutex);
+	g_simulation.satiated_philo++;
+	pthread_mutex_unlock(&g_simulation.general_mutex);
+}
+
+bool philosopher_sleep(unsigned int millis)
+{
+	unsigned long long	start;
+
+	start = get_time_millis();
+	while (get_time_millis() - start < millis)
+	{
+		if (g_simulation.ended)
+			return (true);
+	}
+	return (false);
+}
+
+void	try_getting_fork(t_philo *me)
+{
+	t_fork	*right_fork;
+	t_fork	*left_fork;
+
+	if (g_simulation.ended)
+		return ;
+	right_fork = get_right_fork(me->id - 1, g_simulation.forks,
+			g_simulation.options.nbr_of_philosophers);
+	left_fork = get_left_fork(me->id - 1, g_simulation.forks);
 	lock_forks(left_fork, right_fork);
 	if (!right_fork->used && !left_fork->used)
 	{
-		printf("%llu %d is eating\n", get_time_millis(), me->id);
-		right_fork->used = 1;
-		left_fork->used = 1;
-		me->fork_in_hand = 1;
-		me->death_timer = get_time_millis();
-		result = 1;
+		print_status(me, "has taken a fork");
+		print_status(me, "has taken a fork");
+		right_fork->used = true;
+		left_fork->used = true;
+		me->fork_in_hand = 2;
 	}
 	unlock_forks(left_fork, right_fork);
-	return (result);
 }
 
-int	p_sleep(t_philo *me)
+void	p_eat(t_philo *me)
 {
-	printf("%llu %d is sleeping\n", get_time_millis(), me->id);
-	usleep(g_simulation.options.time_to_sleep * 1000);
+	t_fork	*right_fork;
+	t_fork	*left_fork;
+
+	if (g_simulation.ended)
+		return ;
+	right_fork = get_right_fork(me->id - 1, g_simulation.forks,
+			g_simulation.options.nbr_of_philosophers);
+	left_fork = get_left_fork(me->id - 1, g_simulation.forks);
+	print_status(me, "is eating");
+	me->starving_since = get_time_millis();
+	me->eat_counter++;
+	if (me->eat_counter
+		== g_simulation.options.nbr_of_times_each_philosopher_must_eat)
+		add_satiated_philo();
+	if (philosopher_sleep(g_simulation.options.time_to_eat))
+		return ;
+	lock_forks(left_fork, right_fork);
+	right_fork->used = false;
+	left_fork->used = false;
+	unlock_forks(left_fork, right_fork);
+	me->fork_in_hand = 0;
 }
 
-int	p_think(t_philo *me)
+void	p_sleep(t_philo *me)
 {
-	printf("%llu %d is thinking\n", get_time_millis(), me->id);
+	if (g_simulation.ended)
+		return ;
+	print_status(me, "is sleeping");
+	philosopher_sleep(g_simulation.options.time_to_sleep);
+}
+
+void	p_think(t_philo *me)
+{
+	if (g_simulation.ended)
+		return ;
+	print_status(me, "is thinking");
+	philosopher_sleep(1);
+}
+
+void	p_die(t_philo *me)
+{
+	print_status(me, "died");
 }
 
 void	*routine(void *arg)
 {
-	t_philo *me = (t_philo *)arg;
-	printf("Hi I am philosopher %d :)\n", me->id);
+	t_philo	*me;
+
+	me = (t_philo *)arg;
 	while (1)
 	{
-		if (p_eat(me))
+		if (me->dead)
 		{
-			usleep(g_simulation.options.time_to_eat * 1000);
-			t_fork *right_fork = get_right_fork(me->id - 1, g_simulation.forks, g_simulation.options.number_of_philosophers);
-			t_fork *left_fork = get_left_fork(me->id - 1, g_simulation.forks, g_simulation.options.number_of_philosophers);
-			lock_forks(left_fork, right_fork);
-			right_fork->used = 0;
-			left_fork->used = 0;
-			me->fork_in_hand = 0;
-			unlock_forks(left_fork, right_fork);
+			p_die(me);
+			break ;
 		}
-		else
+		if (g_simulation.ended)
+			break ;
+		try_getting_fork(me);
+		if (me->fork_in_hand != 2)
 			continue ;
+		p_eat(me);
 		p_sleep(me);
 		p_think(me);
 	}
+	return (NULL);
 }
 
 void	start_philosophers(t_philo **philo_list, int amout)
@@ -258,7 +327,7 @@ void	start_philosophers(t_philo **philo_list, int amout)
 	}
 }
 
-void	join_philosophers(t_philo **philo_list, int amout)
+void	remove_philosophers(t_philo **philo_list, int amout)
 {
 	int	i;
 
@@ -266,13 +335,60 @@ void	join_philosophers(t_philo **philo_list, int amout)
 	while (i < amout)
 	{
 		pthread_join(philo_list[i]->thread, NULL);
+		free(philo_list[i]);
 		i++;
 	}
+	free(philo_list);
+}
+
+void	end_checker(void)
+{
+	unsigned int	i;
+
+	while (1)
+	{
+		if (g_simulation.options.nbr_of_times_each_philosopher_must_eat != -1
+			&& g_simulation.satiated_philo
+			== g_simulation.options.nbr_of_philosophers)
+		{
+			g_simulation.ended = true;
+			return ;
+		}
+		i = 0;
+		while (i < g_simulation.options.nbr_of_philosophers)
+		{
+			if (get_time_millis()
+				- g_simulation.philosophers[i]->starving_since
+				> g_simulation.options.time_to_die)
+			{
+				g_simulation.philosophers[i]->dead = true;
+				g_simulation.ended = true;
+				return ;
+			}
+			i++;
+		}
+	}
+}
+
+void create_simulation(t_options options, t_fork **fork_list, t_philo **philo_list)
+{
+	g_simulation.options = options;
+	g_simulation.forks = fork_list;
+	g_simulation.philosophers = philo_list;
+	g_simulation.satiated_philo = 0;
+	pthread_mutex_init(&g_simulation.general_mutex, NULL);
+}
+
+void destroy_simulation(void)
+{
+	pthread_mutex_destroy(&g_simulation.general_mutex);
 }
 
 int	main(int ac, char **av)
 {
 	t_options	options;
+	t_fork		**fork_list;
+	t_philo		**philo_list;
 
 	ac--;
 	av++;
@@ -287,12 +403,14 @@ int	main(int ac, char **av)
 		return (0);
 	}
 	options = parse_options(ac, av);
-	printf("%d\n", options.number_of_philosophers);
-	t_fork **fork_list = create_forks(options.number_of_philosophers);
-	t_philo **philo_list = create_philosophers(options.number_of_philosophers);
-	g_simulation.options = options;
-	g_simulation.forks = fork_list;
-	start_philosophers(philo_list, options.number_of_philosophers);
-	join_philosophers(philo_list, options.number_of_philosophers);
-	destroy_forks(fork_list, options.number_of_philosophers);
+	if (options.nbr_of_times_each_philosopher_must_eat == 0)
+		return (0);
+	fork_list = create_forks(options.nbr_of_philosophers);
+	philo_list = create_philosophers(options.nbr_of_philosophers);
+	create_simulation(options, fork_list, philo_list);
+	start_philosophers(philo_list, options.nbr_of_philosophers);
+	end_checker();
+	remove_philosophers(philo_list, options.nbr_of_philosophers);
+	destroy_forks(fork_list, options.nbr_of_philosophers);
+	destroy_simulation();
 }
