@@ -8,12 +8,19 @@ unsigned long long	get_time_millis(void)
 	return (tval.tv_sec * 1000 + tval.tv_usec / 1000);
 }
 
+bool	is_digit(char c)
+{
+	return (c >= '0' && c <= '9');
+}
+
 int	parse_int(const char *str)
 {
 	int	result;
 
+	if (!str)
+		return (0);
 	result = 0;
-	while (str && *str >= '0' && *str <= '9')
+	while (is_digit(*str))
 		result = result * 10 + (*(str++) - '0');
 	return (result);
 }

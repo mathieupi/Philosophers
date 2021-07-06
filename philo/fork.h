@@ -1,6 +1,15 @@
 #ifndef FORK_H
 # define FORK_H
-# include "philosopher.h"
+# include <stdlib.h>
+# include <stdbool.h>
+# include <pthread.h>
+
+typedef struct s_fork
+{
+	int				id;
+	bool			used;
+	pthread_mutex_t	mutex;
+}	t_fork;
 
 t_fork	*create_fork(int id);
 t_fork	**create_forks(int amount);

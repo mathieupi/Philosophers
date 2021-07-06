@@ -6,7 +6,7 @@
 #    By: mmehran <mmehran@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2021/07/03 17:46:50 by mmehran           #+#    #+#              #
-#    Updated: 2021/07/03 17:47:41 by mmehran          ###   ########.fr        #
+#    Updated: 2021/07/07 00:07:20 by mmehran          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,12 +16,7 @@ CFLAGS = -Wall -Wextra -Werror
 RM = rm -f
 LIBS = -lpthread
 
-OBJS =
-OBJS_BONUS =
-
-ifdef WITH_BONUS
-OBJS = $(OBJS_BONUS)
-endif
+OBJS = utils.o main.o simulation.o fork.o fork2.o philosopher.o philosopher_life.o philosopher_life2.o
 
 $(NAME): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
@@ -39,7 +34,4 @@ fclean: clean
 
 re: clean all
 
-bonus:
-	$(MAKE) WITH_BONUS=1 all
-
-.PHONY: all clean fclean re bonus
+.PHONY: all clean fclean re

@@ -1,6 +1,6 @@
 #ifndef PHILOSOPHER_LIFE_H
 # define PHILOSOPHER_LIFE_H
-# include "philosopher.h"
+# include "simulation.h"
 
 void	*routine(void *arg);
 t_fork	*get_right_fork(int id, t_fork **forks, int fork_amout);
