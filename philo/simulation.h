@@ -25,6 +25,6 @@ typedef struct s_simulation
 void	start_simulation(t_options options);
 void	add_satiated_philo(void);
 
-t_simulation	g_simulation;
+t_simulation	g_simulation; //this is a norm error to fix
 
 #endif

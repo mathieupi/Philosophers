@@ -1,6 +1,4 @@
 #include "fork.h"
-#include <stdlib.h>
-#include <stdbool.h>
 
 t_fork	*create_fork(int id)
 {
