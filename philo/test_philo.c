@@ -194,10 +194,8 @@ void	unlock_forks(t_fork *left_fork, t_fork *right_fork)
 	}
 }
 
-bool	end_checker(void)
+bool	end_checker(t_philo *me)
 {
-	unsigned int	i;
-
 	if (g_simulation.ended)
 		return (true);
 	if (g_simulation.options.nbr_of_times_each_philosopher_must_eat != -1
@@ -207,25 +205,20 @@ bool	end_checker(void)
 		g_simulation.ended = true;
 		return (true);
 	}
-	i = 0;
-	while (i < g_simulation.options.nbr_of_philosophers)
+	if (get_time_millis()
+		- me->starving_since
+		> g_simulation.options.time_to_die)
 	{
-		if (get_time_millis()
-			- g_simulation.philosophers[i]->starving_since
-			> g_simulation.options.time_to_die)
-		{
-			g_simulation.philosophers[i]->dead = true;
-			g_simulation.ended = true;
-			return (true);
-		}
-		i++;
+		me->dead = true;
+		g_simulation.ended = true;
+		return (true);
 	}
 	return (false);
 }
 
 void	print_status(t_philo *me, char *msg)
 {
-	if (end_checker() && !me->dead)
+	if (end_checker(me) && !me->dead)
 		return ;
 	pthread_mutex_lock(&g_simulation.general_mutex);
 	printf("%llu %d %s\n", get_time_millis(), me->id, msg);
@@ -239,14 +232,14 @@ void	add_satiated_philo(void)
 	pthread_mutex_unlock(&g_simulation.general_mutex);
 }
 
-bool	philosopher_sleep(unsigned int millis)
+bool	philosopher_sleep(t_philo *me, unsigned int millis)
 {
 	unsigned long long	start;
 
 	start = get_time_millis();
 	while (get_time_millis() - start < millis)
 	{
-		if (end_checker())
+		if (end_checker(me))
 			return (true);
 		usleep(1000);
 	}
@@ -258,7 +251,7 @@ void	try_getting_fork(t_philo *me)
 	t_fork	*right_fork;
 	t_fork	*left_fork;
 
-	if (end_checker())
+	if (end_checker(me))
 		return ;
 	right_fork = get_right_fork(me->id - 1, g_simulation.forks,
 			g_simulation.options.nbr_of_philosophers);
@@ -280,7 +273,7 @@ void	p_eat(t_philo *me)
 	t_fork	*right_fork;
 	t_fork	*left_fork;
 
-	if (end_checker())
+	if (end_checker(me))
 		return ;
 	right_fork = get_right_fork(me->id - 1, g_simulation.forks,
 			g_simulation.options.nbr_of_philosophers);
@@ -291,7 +284,7 @@ void	p_eat(t_philo *me)
 	if (me->eat_counter
 		== g_simulation.options.nbr_of_times_each_philosopher_must_eat)
 		add_satiated_philo();
-	if (philosopher_sleep(g_simulation.options.time_to_eat))
+	if (philosopher_sleep(me, g_simulation.options.time_to_eat))
 		return ;
 	lock_forks(left_fork, right_fork);
 	right_fork->used = false;
@@ -302,15 +295,15 @@ void	p_eat(t_philo *me)
 
 void	p_sleep(t_philo *me)
 {
-	if (end_checker())
+	if (end_checker(me))
 		return ;
 	print_status(me, "is sleeping");
-	philosopher_sleep(g_simulation.options.time_to_sleep);
+	philosopher_sleep(me, g_simulation.options.time_to_sleep);
 }
 
 void	p_think(t_philo *me)
 {
-	if (end_checker())
+	if (end_checker(me))
 		return ;
 	print_status(me, "is thinking");
 	usleep(1000);
@@ -328,7 +321,8 @@ void	*routine(void *arg)
 	me = (t_philo *)arg;
 	while (1)
 	{
-		end_checker();
+		usleep(100);
+		end_checker(me);
 		if (me->dead)
 		{
 			p_die(me);
