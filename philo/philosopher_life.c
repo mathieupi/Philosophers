@@ -35,10 +35,9 @@ void	p_eat(t_args *args)
 	right_fork = get_right_fork(args->me->id - 1, args->simulation->forks,
 			args->simulation->options.nbr_of_philosophers);
 	left_fork = get_left_fork(args->me->id - 1, args->simulation->forks);
-	args->me->starving_since = get_time_millis();
 	print_status(args, "is eating");
-	args->me->eat_counter++;
-	if (args->me->eat_counter
+	args->me->starving_since = get_time_millis();
+	if (++args->me->eat_counter
 		== args->simulation->options.nbr_of_times_each_philosopher_must_eat)
 		add_satiated_philo(args->simulation);
 	if (philosopher_sleep(args, args->simulation->options.time_to_eat))

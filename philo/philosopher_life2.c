@@ -2,14 +2,16 @@
 
 bool	end_checker(t_args *args)
 {
-	if (args->simulation->ended)
-		return (true);
+	bool	result;
+
+	pthread_mutex_lock(&args->simulation->general_mutex);
+	result = args->simulation->ended;
 	if (args->simulation->options.nbr_of_times_each_philosopher_must_eat != -1
 		&& args->simulation->satiated_philo
 		== args->simulation->options.nbr_of_philosophers)
 	{
 		args->simulation->ended = true;
-		return (true);
+		result |= true;
 	}
 	if (get_time_millis()
 		- args->me->starving_since
@@ -17,14 +19,15 @@ bool	end_checker(t_args *args)
 	{
 		args->me->dead = true;
 		args->simulation->ended = true;
-		return (true);
+		result |= true;
 	}
-	return (false);
+	pthread_mutex_unlock(&args->simulation->general_mutex);
+	return (result);
 }
 
 void	print_status(t_args *args, char *msg)
 {
-	if (end_checker(args) && !args->me->dead)
+	if (!args->me->dead && end_checker(args))
 		return ;
 	pthread_mutex_lock(&args->simulation->general_mutex);
 	printf("%llu %d %s\n", get_time_millis(), args->me->id, msg);
@@ -40,7 +43,7 @@ bool	philosopher_sleep(t_args *args, unsigned int millis)
 	{
 		if (end_checker(args))
 			return (true);
-		usleep(1000);
+		usleep(100);
 	}
 	return (false);
 }
