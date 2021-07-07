@@ -34,14 +34,18 @@ t_philo	**create_philosophers(int amount)
 
 void	*routine(void *arg);
 
-void	start_philosophers(t_philo **philo_list, int amout)
+void	start_philosophers(t_simulation *simulation, t_philo **philo_list, int amout)
 {
-	int	i;
+	int		i;
+	t_args	*args;
 
 	i = 0;
 	while (i < amout)
 	{
-		pthread_create(&philo_list[i]->thread, NULL, routine, philo_list[i]);
+		args = malloc(sizeof(t_args));
+		args->me = philo_list[i];
+		args->simulation = simulation;
+		pthread_create(&philo_list[i]->thread, NULL, routine, args);
 		i++;
 	}
 }
