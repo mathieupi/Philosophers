@@ -32,8 +32,6 @@ t_philo	**create_philosophers(int amount)
 	return (philo_list);
 }
 
-void	*routine(void *arg);
-
 void	start_philosophers(t_simulation *simulation)
 {
 	unsigned int	i;

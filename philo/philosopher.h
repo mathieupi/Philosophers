@@ -17,4 +17,6 @@ t_philo				*create_philosopher(int id);
 t_philo				**create_philosophers(int amount);
 void				start_philosophers(t_simulation *simulation);
 void				remove_philosophers(t_philo **philo_list, int amout);
+
+void				*routine(void *arg);
 #endif

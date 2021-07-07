@@ -65,6 +65,4 @@ int	main(int ac, char **av)
 	if (options.nbr_of_times_each_philosopher_must_eat == 0)
 		return (0);
 	start_simulation(options);
-	while (1)
-		;
 }
