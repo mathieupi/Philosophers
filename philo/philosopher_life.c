@@ -81,5 +81,6 @@ void	*routine(void *arg)
 		p_sleep(args);
 		p_think(args);
 	}
+	free(args);
 	return (NULL);
 }

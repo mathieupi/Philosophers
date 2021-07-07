@@ -6,6 +6,7 @@ void	destroy_simulation(t_simulation *simulation)
 		simulation->options.nbr_of_philosophers);
 	destroy_forks(simulation->forks, simulation->options.nbr_of_philosophers);
 	pthread_mutex_destroy(&simulation->general_mutex);
+	free(simulation);
 }
 
 static t_simulation	*create_simulation(t_options options)
@@ -28,7 +29,7 @@ void	start_simulation(t_options options)
 	t_simulation	*simulation;
 
 	simulation = create_simulation(options);
-	start_philosophers(simulation, simulation->philosophers, options.nbr_of_philosophers);
+	start_philosophers(simulation);
 	destroy_simulation(simulation);
 }
 
