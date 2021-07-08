@@ -6,7 +6,7 @@
 /*   By: mmehran <mmehran@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/07/08 00:27:50 by mmehran           #+#    #+#             */
-/*   Updated: 2021/07/08 00:28:38 by mmehran          ###   ########.fr       */
+/*   Updated: 2021/07/08 13:29:26 by mmehran          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -77,13 +77,7 @@ void	*routine(void *arg)
 	while (1)
 	{
 		usleep(100);
-		end_checker(args);
-		if (args->me->dead)
-		{
-			print_status(args, "died");
-			break ;
-		}
-		if (args->simulation->ended)
+		if (end_checker(args))
 			break ;
 		try_getting_fork(args);
 		if (args->me->fork_in_hand != 2)
